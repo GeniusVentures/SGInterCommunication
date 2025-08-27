@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package sgipc;
+
+option cpp_namespace = "sgipc::proto";
+
+// Message types for IPC communication
+enum MessageType {
+    UNKNOWN = 0;
+    HEARTBEAT = 1;
+    PORT_REQUEST = 2;
+    PORT_RESPONSE = 3;
+    PORT_NEGOTIATION = 4;
+}
+
+// Basic heartbeat message for presence detection
+message Heartbeat {
+    string instance_id = 1;          // Unique identifier for the instance
+    uint32 port = 2;                 // Port the instance is listening on
+    uint64 timestamp = 3;            // Unix timestamp in milliseconds
+    string version = 4;              // Protocol version
+    map<string, string> metadata = 5; // Additional instance metadata
+}
+
+// Request for port negotiation
+message PortRequest {
+    string instance_id = 1;          // Requesting instance ID
+    uint32 preferred_port = 2;       // Preferred port number
+    uint64 timestamp = 3;            // Request timestamp
+    repeated uint32 alternative_ports = 4; // Alternative acceptable ports
+}
+
+// Response to port request
+message PortResponse {
+    string instance_id = 1;          // Responding instance ID
+    uint32 assigned_port = 2;        // Assigned/confirmed port
+    uint64 timestamp = 3;            // Response timestamp
+    bool success = 4;                // Whether the request was successful
+    string error_message = 5;        // Error description if success is false
+}
+
+// Generic IPC message wrapper
+message IPCMessage {
+    MessageType type = 1;            // Type of the message
+    string sender_id = 2;            // Sender instance ID
+    string recipient_id = 3;         // Recipient instance ID (empty for broadcast)
+    uint64 timestamp = 4;            // Message timestamp
+    
+    oneof payload {
+        Heartbeat heartbeat = 10;
+        PortRequest port_request = 11;
+        PortResponse port_response = 12;
+    }
+}
+
+// Discovery announcement for new instances
+message DiscoveryAnnouncement {
+    string instance_id = 1;          // Instance announcing itself
+    string service_name = 2;         // Name of the service
+    uint32 port = 3;                 // Service port
+    uint64 timestamp = 4;            // Announcement timestamp
+    map<string, string> capabilities = 5; // Service capabilities
+}
+
+// Service registry for maintaining active instances
+message ServiceRegistry {
+    repeated DiscoveryAnnouncement services = 1;
+    uint64 last_updated = 2;         // Registry last update timestamp
+}
