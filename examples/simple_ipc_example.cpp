@@ -10,14 +10,14 @@ int main()
     std::cout << "====================================" << std::endl;
 
     // Create IPC instance
-    auto ipc = sgipc::createPlatformIPC();
+    auto ipc = sgipc::CreatePlatformIPC();
     if ( !ipc )
     {
         std::cerr << "Failed to create IPC instance" << std::endl;
         return 1;
     }
 
-    std::cout << "Using backend: " << ipc->getBackendName() << std::endl;
+    std::cout << "Using backend: " << ipc->GetBackendName() << std::endl;
 
     // Configure IPC
     sgipc::IPCConfig config;
@@ -29,22 +29,22 @@ int main()
     config.allowFallback     = true;
 
     // Initialize IPC
-    auto status = ipc->init( config );
+    auto status = ipc->Init( config );
     if ( status != sgipc::IPCStatus::SUCCESS )
     {
-        std::cerr << "Failed to initialize IPC: " << sgipc::toString( status ) << std::endl;
+        std::cerr << "Failed to initialize IPC: " << sgipc::ToString( status ) << std::endl;
         return 1;
     }
 
     std::cout << "IPC initialized successfully" << std::endl;
-    std::cout << "Instance ID: " << ipc->getConfig().instanceId << std::endl;
+    std::cout << "Instance ID: " << ipc->GetConfig().instanceId << std::endl;
 
     // Negotiate port
     uint16_t assignedPort = 0;
-    status                = ipc->negotiatePort( config.preferredPort, assignedPort );
+    status                = ipc->NegotiatePort( config.preferredPort, assignedPort );
     if ( status != sgipc::IPCStatus::SUCCESS )
     {
-        std::cerr << "Failed to negotiate port: " << sgipc::toString( status ) << std::endl;
+        std::cerr << "Failed to negotiate port: " << sgipc::ToString( status ) << std::endl;
         return 1;
     }
 
@@ -54,6 +54,26 @@ int main()
     std::atomic<int> message_count{ 0 };
     std::atomic<int> heartbeat_count{ 0 };
 
+#ifdef SGIPC_MINIMAL_BUILD
+    auto message_callback = [&]( const sgipc::simple::SimpleMessage &message, const std::string &sender )
+    {
+        message_count++;
+
+        std::cout << "Received message #" << message_count.load() << std::endl;
+        std::cout << "  Type: " << static_cast<int>(message.type) << std::endl;
+        std::cout << "  Sender: " << message.sender_id << std::endl;
+        std::cout << "  Timestamp: " << message.timestamp << std::endl;
+        std::cout << "  From: " << sender << std::endl;
+
+        if ( message.type == sgipc::simple::MessageType::HEARTBEAT )
+        {
+            heartbeat_count++;
+            std::cout << "  Heartbeat payload: " << message.payload << std::endl;
+        }
+
+        std::cout << std::endl;
+    };
+#else
     auto message_callback = [&]( const sgipc::proto::IPCMessage &message, const std::string &sender )
     {
         message_count++;
@@ -75,12 +95,13 @@ int main()
 
         std::cout << std::endl;
     };
+#endif
 
     // Start listening for messages
-    status = ipc->listenForMessages( message_callback );
+    status = ipc->ListenForMessages( message_callback );
     if ( status != sgipc::IPCStatus::SUCCESS )
     {
-        std::cerr << "Failed to start listening: " << sgipc::toString( status ) << std::endl;
+        std::cerr << "Failed to start listening: " << sgipc::ToString( status ) << std::endl;
         return 1;
     }
 
@@ -93,10 +114,10 @@ int main()
     for ( int i = 0; i < 10; ++i )
     {
         // Send heartbeat
-        status = ipc->sendHeartbeat( assignedPort );
+        status = ipc->SendHeartbeat( assignedPort );
         if ( status != sgipc::IPCStatus::SUCCESS )
         {
-            std::cerr << "Failed to send heartbeat: " << sgipc::toString( status ) << std::endl;
+            std::cerr << "Failed to send heartbeat: " << sgipc::ToString( status ) << std::endl;
         }
         else
         {
@@ -111,31 +132,38 @@ int main()
                   << std::endl;
 
         // Show discovered instances
-        auto instances = ipc->getDiscoveredInstances();
+        auto instances = ipc->GetDiscoveredInstances();
         if ( !instances.empty() )
         {
             std::cout << "Discovered " << instances.size() << " instance(s):" << std::endl;
+#ifdef SGIPC_MINIMAL_BUILD
+            for ( const auto &instance : instances )
+            {
+                std::cout << "  - " << instance.sender_id << " payload: " << instance.payload << std::endl;
+            }
+#else
             for ( const auto &instance : instances )
             {
                 std::cout << "  - " << instance.instanceId() << " on port " << instance.port() << std::endl;
             }
+#endif
         }
 
         std::cout << "---" << std::endl;
     }
 
     // Stop listening
-    status = ipc->stopListening();
+    status = ipc->StopListening();
     if ( status != sgipc::IPCStatus::SUCCESS )
     {
-        std::cerr << "Failed to stop listening: " << sgipc::toString( status ) << std::endl;
+        std::cerr << "Failed to stop listening: " << sgipc::ToString( status ) << std::endl;
     }
 
     // Shutdown
-    status = ipc->shutdown();
+    status = ipc->Shutdown();
     if ( status != sgipc::IPCStatus::SUCCESS )
     {
-        std::cerr << "Failed to shutdown IPC: " << sgipc::toString( status ) << std::endl;
+        std::cerr << "Failed to shutdown IPC: " << sgipc::ToString( status ) << std::endl;
     }
 
     std::cout << "Example completed successfully!" << std::endl;

@@ -11,9 +11,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Set up paths to GeniusVentures thirdparty libraries
-set(_THIRDPARTY_BUILD_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty")
-
 # --------------------------------------------------------
 # Set config for Boost.Outcome using GeniusVentures thirdparty
 set(BOOST_ROOT "${_THIRDPARTY_BUILD_DIR}/boost")

@@ -31,8 +31,13 @@ namespace sgipc
         IPCStatus NegotiatePort( uint16_t preferredPort, uint16_t &assignedPort ) override;
         IPCStatus ListenForMessages( MessageCallback callback ) override;
         IPCStatus StopListening() override;
+#ifdef SGIPC_MINIMAL_BUILD
+        IPCStatus SendMessage( const simple::SimpleMessage &message, const std::string &recipientId = "" ) override;
+        std::vector<simple::SimpleMessage> GetDiscoveredInstances() const override;
+#else
         IPCStatus SendMessage( const proto::IPCMessage &message, const std::string &recipientId = "" ) override;
         std::vector<proto::DiscoveryAnnouncement> GetDiscoveredInstances() const override;
+#endif
         bool                                      IsAvailable() const override;
         std::string                               GetBackendName() const override;
         const IPCConfig                          &GetConfig() const override;
@@ -80,12 +85,12 @@ namespace sgipc
      * @param message Output message data
      * @return true on success, false on failure
      */
-        bool readMessageFromFile( const std::string &filename, std::vector<uint8_t> &message );
+        bool ReadMessageFromFile( const std::string &filename, std::vector<uint8_t> &message );
 
         /**
      * @brief File watching thread function
      */
-        void fileWatchingThread();
+        void FileWatchingThread();
 
         /**
      * @brief Scan directory for new message files
@@ -98,32 +103,32 @@ namespace sgipc
      * @brief Process a message file
      * @param filepath Path to message file
      */
-        void processMessageFile( const std::string &filepath );
+        void ProcessMessageFile( const std::string &filepath );
 
         /**
      * @brief Clean up old message files
      */
-        void cleanupOldFiles();
+        void CleanupOldFiles();
 
         /**
      * @brief Generate unique filename for message
      * @param message_type Type of message
      * @return Unique filename
      */
-        std::string generateMessageFilename( const std::string &message_type ) const;
+        std::string GenerateMessageFilename( const std::string &message_type ) const;
 
         /**
      * @brief Check if file has been processed before
      * @param filename File name
      * @return true if processed, false if new
      */
-        bool isFileProcessed( const std::string &filename );
+        bool IsFileProcessed( const std::string &filename );
 
         /**
      * @brief Mark file as processed
      * @param filename File name
      */
-        void markFileAsProcessed( const std::string &filename );
+        void MarkFileAsProcessed( const std::string &filename );
 
         /**
      * @brief Create lock file to prevent concurrent access
@@ -163,7 +168,11 @@ namespace sgipc
 
         // Discovered instances
         mutable std::mutex                        m_instancesMutex;
+#ifdef SGIPC_MINIMAL_BUILD
+        std::vector<simple::SimpleMessage> m_discoveredInstances;
+#else
         std::vector<proto::DiscoveryAnnouncement> m_discoveredInstances;
+#endif
 
         // Configuration constants
         static constexpr auto FILE_SCAN_INTERVAL    = std::chrono::milliseconds( 2000 );

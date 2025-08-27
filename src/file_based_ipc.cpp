@@ -5,8 +5,11 @@
 #include <algorithm>
 
 #ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
 #include <windows.h>
 #include <shlobj.h>
+#undef SendMessage  // Avoid Windows macro conflict
 #else
 #include <unistd.h>
 #include <sys/stat.h>
@@ -20,10 +23,10 @@ namespace sgipc
 
     FileBasedIPC::~FileBasedIPC()
     {
-        shutdown();
+        Shutdown();
     }
 
-    IPCStatus FileBasedIPC::init( const IPCConfig &config )
+    IPCStatus FileBasedIPC::Init( const IPCConfig &config )
     {
         if ( m_initialized.load() )
         {
@@ -34,11 +37,11 @@ namespace sgipc
 
         if ( m_config.instanceId.empty() )
         {
-            m_config.instanceId = generateInstanceId();
+            m_config.instanceId = GenerateInstanceId();
         }
 
         // Initialize file system
-        if ( !initializeFileSystem() )
+        if ( !InitializeFileSystem() )
         {
             return IPCStatus::FAILED_TO_INITIALIZE;
         }
@@ -52,7 +55,7 @@ namespace sgipc
         return IPCStatus::SUCCESS;
     }
 
-    IPCStatus FileBasedIPC::shutdown()
+    IPCStatus FileBasedIPC::Shutdown()
     {
         if ( !m_initialized.load() )
         {
@@ -69,38 +72,44 @@ namespace sgipc
         }
 
         // Cleanup old files
-        cleanupOldFiles();
+        CleanupOldFiles();
 
         m_initialized.store( false );
         return IPCStatus::SUCCESS;
     }
 
-    IPCStatus FileBasedIPC::sendHeartbeat( uint16_t port )
+    IPCStatus FileBasedIPC::SendHeartbeat( uint16_t port )
     {
         if ( !m_initialized.load() )
         {
             return IPCStatus::FAILED_TO_INITIALIZE;
         }
 
+#ifdef SGIPC_MINIMAL_BUILD
+        auto message = simple::createHeartbeat( m_config.instanceId );
+        message.timestamp = GetCurrentTimestamp();
+        message.payload = std::to_string( port ); // Store port in payload for simple messages
+#else
         proto::IPCMessage message;
         message.set_type( proto::MessageType::HEARTBEAT );
         message.set_sender_id( m_config.instanceId );
-        message.set_timestamp( getCurrentTimestamp() );
+        message.set_timestamp( GetCurrentTimestamp() );
 
         auto heartbeat = message.mutable_heartbeat();
         heartbeat->set_instance_id( m_config.instanceId );
         heartbeat->set_port( port );
-        heartbeat->set_timestamp( getCurrentTimestamp() );
+        heartbeat->set_timestamp( GetCurrentTimestamp() );
         heartbeat->set_version( "1.0.0" );
+#endif
 
         // Write heartbeat to file
         std::vector<uint8_t> serialized;
-        if ( !serializeMessage( message, serialized ) )
+        if ( !SerializeMessage( message, serialized ) )
         {
             return IPCStatus::INVALID_MESSAGE;
         }
 
-        std::string filename = m_heartbeatDirectory + "/" + generateMessageFilename( "heartbeat" );
+        std::string filename = m_heartbeatDirectory + "/" + GenerateMessageFilename( "heartbeat" );
 
         if ( !writeMessageToFile( filename, serialized ) )
         {
@@ -110,7 +119,7 @@ namespace sgipc
         return IPCStatus::SUCCESS;
     }
 
-    IPCStatus FileBasedIPC::negotiatePort( uint16_t preferredPort, uint16_t &assignedPort )
+    IPCStatus FileBasedIPC::NegotiatePort( uint16_t preferredPort, uint16_t &assignedPort )
     {
         if ( !m_initialized.load() )
         {
@@ -125,7 +134,7 @@ namespace sgipc
         return IPCStatus::SUCCESS;
     }
 
-    IPCStatus FileBasedIPC::listenForMessages( MessageCallback callback )
+    IPCStatus FileBasedIPC::ListenForMessages( MessageCallback callback )
     {
         if ( !m_initialized.load() )
         {
@@ -141,18 +150,19 @@ namespace sgipc
         m_listening.store( true );
 
         // Start file watching thread
-        m_fileWatchingThread = std::thread( &FileBasedIPC::fileWatchingThread, this );
+        m_fileWatchingThread = std::thread( &FileBasedIPC::FileWatchingThread, this );
 
         return IPCStatus::SUCCESS;
     }
 
-    IPCStatus FileBasedIPC::stopListening()
+    IPCStatus FileBasedIPC::StopListening()
     {
         m_listening.store( false );
         return IPCStatus::SUCCESS;
     }
 
-    IPCStatus FileBasedIPC::sendMessage( const proto::IPCMessage &message, const std::string &recipientId )
+#ifdef SGIPC_MINIMAL_BUILD
+    IPCStatus FileBasedIPC::SendMessage( const simple::SimpleMessage &message, const std::string &recipientId )
     {
         if ( !m_initialized.load() )
         {
@@ -161,7 +171,49 @@ namespace sgipc
 
         // Serialize message
         std::vector<uint8_t> serialized;
-        if ( !serializeMessage( message, serialized ) )
+        if ( !SerializeMessage( message, serialized ) )
+        {
+            return IPCStatus::INVALID_MESSAGE;
+        }
+
+        // Determine target directory based on message type
+        std::string target_dir   = m_messagesDirectory;
+        std::string message_type = "message";
+
+        switch ( message.type )
+        {
+            case simple::MessageType::HEARTBEAT:
+                target_dir   = m_heartbeatDirectory;
+                message_type = "heartbeat";
+                break;
+            case simple::MessageType::DISCOVERY_ANNOUNCEMENT:
+                target_dir   = m_discoveryDirectory;
+                message_type = "discovery";
+                break;
+            default:
+                break;
+        }
+
+        std::string filename = target_dir + "/" + GenerateMessageFilename( message_type );
+
+        if ( !writeMessageToFile( filename, serialized ) )
+        {
+            return IPCStatus::FAILED_TO_SEND;
+        }
+
+        return IPCStatus::SUCCESS;
+    }
+#else
+    IPCStatus FileBasedIPC::SendMessage( const proto::IPCMessage &message, const std::string &recipientId )
+    {
+        if ( !m_initialized.load() )
+        {
+            return IPCStatus::FAILED_TO_INITIALIZE;
+        }
+
+        // Serialize message
+        std::vector<uint8_t> serialized;
+        if ( !SerializeMessage( message, serialized ) )
         {
             return IPCStatus::INVALID_MESSAGE;
         }
@@ -178,13 +230,14 @@ namespace sgipc
                 break;
             case proto::MessageType::PORT_REQUEST:
             case proto::MessageType::PORT_RESPONSE:
-                message_type = "port";
+                target_dir   = m_discoveryDirectory;
+                message_type = "discovery";
                 break;
             default:
                 break;
         }
 
-        std::string filename = target_dir + "/" + generateMessageFilename( message_type );
+        std::string filename = target_dir + "/" + GenerateMessageFilename( message_type );
 
         if ( !writeMessageToFile( filename, serialized ) )
         {
@@ -193,39 +246,48 @@ namespace sgipc
 
         return IPCStatus::SUCCESS;
     }
+#endif
 
-    std::vector<proto::DiscoveryAnnouncement> FileBasedIPC::getDiscoveredInstances() const
+#ifdef SGIPC_MINIMAL_BUILD
+    std::vector<simple::SimpleMessage> FileBasedIPC::GetDiscoveredInstances() const
     {
         std::lock_guard<std::mutex> lock( m_instancesMutex );
         return m_discoveredInstances;
     }
+#else
+    std::vector<proto::DiscoveryAnnouncement> FileBasedIPC::GetDiscoveredInstances() const
+    {
+        std::lock_guard<std::mutex> lock( m_instancesMutex );
+        return m_discoveredInstances;
+    }
+#endif
 
-    bool FileBasedIPC::isAvailable() const
+    bool FileBasedIPC::IsAvailable() const
     {
         // File-based IPC is available on all platforms
         return true;
     }
 
-    std::string FileBasedIPC::getBackendName() const
+    std::string FileBasedIPC::GetBackendName() const
     {
         return "file-based";
     }
 
-    const IPCConfig &FileBasedIPC::getConfig() const
+    const IPCConfig &FileBasedIPC::GetConfig() const
     {
         return m_config;
     }
 
-    uint16_t FileBasedIPC::getAssignedPort() const
+    uint16_t FileBasedIPC::GetAssignedPort() const
     {
         return m_assignedPort.load();
     }
 
     // Private method implementations
 
-    bool FileBasedIPC::initializeFileSystem()
+    bool FileBasedIPC::InitializeFileSystem()
     {
-        std::string temp_dir = getTempDirectoryPath();
+        std::string temp_dir = GetTempDirectoryPath();
         if ( temp_dir.empty() )
         {
             return false;
@@ -246,7 +308,7 @@ namespace sgipc
         return true;
     }
 
-    std::string FileBasedIPC::getTempDirectoryPath() const
+    std::string FileBasedIPC::GetTempDirectoryPath() const
     {
 #ifdef _WIN32
         wchar_t temp_path[MAX_PATH];
@@ -334,7 +396,7 @@ namespace sgipc
         }
     }
 
-    bool FileBasedIPC::readMessageFromFile( const std::string &filename, std::vector<uint8_t> &message )
+    bool FileBasedIPC::ReadMessageFromFile( const std::string &filename, std::vector<uint8_t> &message )
     {
         try
         {
@@ -361,7 +423,7 @@ namespace sgipc
         }
     }
 
-    void FileBasedIPC::fileWatchingThread()
+    void FileBasedIPC::FileWatchingThread()
     {
         while ( !m_shutdownRequested.load() && m_listening.load() )
         {
@@ -375,10 +437,10 @@ namespace sgipc
             // Process new files
             for ( const auto &filepath : newFiles )
             {
-                if ( !isFileProcessed( filepath ) )
+                if ( !IsFileProcessed( filepath ) )
                 {
-                    processMessageFile( filepath );
-                    markFileAsProcessed( filepath );
+                    ProcessMessageFile( filepath );
+                    MarkFileAsProcessed( filepath );
                 }
             }
 
@@ -386,7 +448,7 @@ namespace sgipc
             auto now = std::chrono::steady_clock::now();
             if ( now - m_lastCleanup > FILE_CLEANUP_INTERVAL )
             {
-                cleanupOldFiles();
+                CleanupOldFiles();
                 m_lastCleanup = now;
             }
 
@@ -417,7 +479,7 @@ namespace sgipc
         }
     }
 
-    void FileBasedIPC::processMessageFile( const std::string &filepath )
+    void FileBasedIPC::ProcessMessageFile( const std::string &filepath )
     {
         if ( !m_messageCallback )
         {
@@ -425,19 +487,62 @@ namespace sgipc
         }
 
         std::vector<uint8_t> message_data;
-        if ( !readMessageFromFile( filepath, message_data ) )
+        if ( !ReadMessageFromFile( filepath, message_data ) )
         {
             return;
         }
 
-        proto::IPCMessage message;
-        if ( !deserializeMessage( message_data, message ) )
+#ifdef SGIPC_MINIMAL_BUILD
+        simple::SimpleMessage message;
+        if ( !DeserializeMessage( message_data, message ) )
         {
             return;
         }
 
         // Validate message freshness
-        if ( !isMessageFresh( message.timestamp(), m_config.messageTtl ) )
+        if ( !IsMessageFresh( message.timestamp, m_config.messageTtl ) )
+        {
+            return;
+        }
+
+        // Don't process our own messages
+        if ( message.sender_id == m_config.instanceId )
+        {
+            return;
+        }
+
+        // Update discovered instances if it's a heartbeat
+        if ( message.type == simple::MessageType::HEARTBEAT )
+        {
+            auto announcement = simple::createDiscoveryAnnouncement( message.sender_id, message.payload );
+            announcement.timestamp = message.timestamp;
+
+            std::lock_guard<std::mutex> lock( m_instancesMutex );
+
+            // Update or add to discovered instances
+            auto it = std::find_if( m_discoveredInstances.begin(),
+                                    m_discoveredInstances.end(),
+                                    [&]( const simple::SimpleMessage &existing )
+                                    { return existing.sender_id == announcement.sender_id; } );
+
+            if ( it != m_discoveredInstances.end() )
+            {
+                *it = announcement;
+            }
+            else
+            {
+                m_discoveredInstances.push_back( announcement );
+            }
+        }
+#else
+        proto::IPCMessage message;
+        if ( !DeserializeMessage( message_data, message ) )
+        {
+            return;
+        }
+
+        // Validate message freshness
+        if ( !IsMessageFresh( message.timestamp(), m_config.messageTtl ) )
         {
             return;
         }
@@ -475,12 +580,13 @@ namespace sgipc
                 m_discoveredInstances.push_back( announcement );
             }
         }
+#endif
 
         // Call user callback
         m_messageCallback( message, "file:" + filepath );
     }
 
-    void FileBasedIPC::cleanupOldFiles()
+    void FileBasedIPC::CleanupOldFiles()
     {
         std::vector<std::string> directories = { m_messagesDirectory, m_heartbeatDirectory, m_discoveryDirectory };
 
@@ -519,7 +625,7 @@ namespace sgipc
 
         // Cleanup processed files list
         {
-            std::lock_guard<std::mutex> lock( m_processedFilesmutex_ );
+            std::lock_guard<std::mutex> lock( m_processedFilesMutex );
             // Keep only recent entries (simplified cleanup)
             if ( m_processedFiles.size() > 1000 )
             {
@@ -528,7 +634,7 @@ namespace sgipc
         }
     }
 
-    std::string FileBasedIPC::generateMessageFilename( const std::string &message_type ) const
+    std::string FileBasedIPC::GenerateMessageFilename( const std::string &message_type ) const
     {
         auto now       = std::chrono::system_clock::now();
         auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>( now.time_since_epoch() ).count();
@@ -536,15 +642,15 @@ namespace sgipc
         return m_config.instanceId + "_" + message_type + "_" + std::to_string( timestamp ) + ".msg";
     }
 
-    bool FileBasedIPC::isFileProcessed( const std::string &filename )
+    bool FileBasedIPC::IsFileProcessed( const std::string &filename )
     {
-        std::lock_guard<std::mutex> lock( m_processedFilesmutex_ );
+        std::lock_guard<std::mutex> lock( m_processedFilesMutex );
         return m_processedFiles.find( filename ) != m_processedFiles.end();
     }
 
-    void FileBasedIPC::markFileAsProcessed( const std::string &filename )
+    void FileBasedIPC::MarkFileAsProcessed( const std::string &filename )
     {
-        std::lock_guard<std::mutex> lock( m_processedFilesmutex_ );
+        std::lock_guard<std::mutex> lock( m_processedFilesMutex );
         m_processedFiles.insert( filename );
     }
 

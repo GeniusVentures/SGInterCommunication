@@ -19,7 +19,7 @@ namespace sgipc
 
     // CrossPlatformIPC protected method implementations
 
-    bool CrossPlatformIPC::isMessageFresh( uint64_t timestamp, std::chrono::milliseconds ttl ) const
+    bool CrossPlatformIPC::IsMessageFresh( uint64_t timestamp, std::chrono::milliseconds ttl ) const
     {
         auto current_time = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 std::chrono::system_clock::now().time_since_epoch() )
@@ -28,14 +28,14 @@ namespace sgipc
         return ( current_time - timestamp ) <= ttl.count();
     }
 
-    uint64_t CrossPlatformIPC::getCurrentTimestamp() const
+    uint64_t CrossPlatformIPC::GetCurrentTimestamp() const
     {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
                    std::chrono::system_clock::now().time_since_epoch() )
             .count();
     }
 
-    std::string CrossPlatformIPC::generateInstanceId() const
+    std::string CrossPlatformIPC::GenerateInstanceId() const
     {
         std::random_device              rd;
         std::mt19937                    gen( rd() );
@@ -73,7 +73,34 @@ namespace sgipc
         return ss.str();
     }
 
-    bool CrossPlatformIPC::serializeMessage( const proto::IPCMessage &message, std::vector<uint8_t> &output ) const
+#ifdef SGIPC_MINIMAL_BUILD
+    bool CrossPlatformIPC::SerializeMessage( const simple::SimpleMessage &message, std::vector<uint8_t> &output ) const
+    {
+        try
+        {
+            output = message.serialize();
+            return true;
+        }
+        catch ( const std::exception & )
+        {
+            return false;
+        }
+    }
+
+    bool CrossPlatformIPC::DeserializeMessage( const std::vector<uint8_t> &data, simple::SimpleMessage &message ) const
+    {
+        try
+        {
+            message = simple::SimpleMessage::deserialize( data );
+            return true;
+        }
+        catch ( const std::exception & )
+        {
+            return false;
+        }
+    }
+#else
+    bool CrossPlatformIPC::SerializeMessage( const proto::IPCMessage &message, std::vector<uint8_t> &output ) const
     {
         try
         {
@@ -92,7 +119,7 @@ namespace sgipc
         }
     }
 
-    bool CrossPlatformIPC::deserializeMessage( const std::vector<uint8_t> &data, proto::IPCMessage &message ) const
+    bool CrossPlatformIPC::DeserializeMessage( const std::vector<uint8_t> &data, proto::IPCMessage &message ) const
     {
         try
         {
@@ -104,41 +131,24 @@ namespace sgipc
             return false;
         }
     }
+#endif
 
     // Factory function implementation
-    std::shared_ptr<CrossPlatformIPC> createPlatformIPC()
+    std::shared_ptr<CrossPlatformIPC> CreatePlatformIPC()
     {
-        // Try libp2p first (primary backend for most platforms)
-        auto libp2p_ipc = std::make_shared<Libp2pIPC>();
-        if ( libp2p_ipc->isAvailable() )
-        {
-            return libp2p_ipc;
-        }
-
-#ifdef __APPLE__
-#if TARGET_OS_IOS
-        // iOS specific: try Pasteboard fallback
-        auto ios_ipc = std::make_shared<iOSPasteboardIPC>();
-        if ( ios_ipc->isAvailable() )
-        {
-            return ios_ipc;
-        }
-#endif
-#endif
-
-        // Fallback to file-based IPC for all platforms
+        // Try file-based IPC first for minimal build
         auto file_ipc = std::make_shared<FileBasedIPC>();
-        if ( file_ipc->isAvailable() )
+        if ( file_ipc->IsAvailable() )
         {
             return file_ipc;
         }
 
-        // No suitable backend found
+        // No backends available
         return nullptr;
     }
 
     // Status to string conversion
-    std::string toString( IPCStatus status )
+    std::string ToString( IPCStatus status )
     {
         switch ( status )
         {

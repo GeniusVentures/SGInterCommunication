@@ -1,5 +1,3 @@
-# Git submodules configuration for external dependencies
-[submodule "thirdparty"]
-	path = thirdparty
-	url = https://github.com/GeniusVentures/thirdparty.git
-	branch = master
+[submodule "build"]
+	path = build
+	url = ../cmaketemplate
