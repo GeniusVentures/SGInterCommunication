@@ -1,28 +1,3 @@
-# conditionally applies flag.
-function(add_flag flag)
-  check_cxx_compiler_flag(${flag} FLAG_${flag})
-  if (FLAG_${flag} EQUAL 1)
-    add_compile_options(${flag})
-  endif ()
-endfunction()
-
-function(print)
-  message(STATUS "[${CMAKE_PROJECT_NAME}] ${ARGV}")
-endfunction()
-
-### sgipc_install should be called right after add_library(target)
-function(sgipc_install target)
-    install(TARGETS ${target} EXPORT SGIPCTargets
-        LIBRARY       DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE       DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME       DESTINATION ${CMAKE_INSTALL_BINDIR}
-        INCLUDES      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-        FRAMEWORK     DESTINATION ${CMAKE_INSTALL_PREFIX}
-        BUNDLE        DESTINATION ${CMAKE_INSTALL_BINDIR}
-        )
-endfunction()
-
 function(disable_clang_tidy target)
   set_target_properties(${target} PROPERTIES
       C_CLANG_TIDY ""
@@ -49,6 +24,7 @@ function(addtest test_name)
       LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/test_lib
       )
   disable_clang_tidy(${test_name})
+
   if(FORCE_MULTILE)
     set_target_properties(${test_name} PROPERTIES LINK_FLAGS "${MULTIPLE_OPTION}")
   endif()
@@ -65,3 +41,29 @@ function(addtest_part test_name)
       GTest::gtest
       )
 endfunction()
+
+# conditionally applies flag.
+function(add_flag flag)
+  check_cxx_compiler_flag(${flag} FLAG_${flag})
+  if (FLAG_${flag} EQUAL 1)
+    add_compile_options(${flag})
+  endif ()
+endfunction()
+
+function(print)
+  message(STATUS "[${CMAKE_PROJECT_NAME}] ${ARGV}")
+endfunction()
+
+### sgnus_install should be called right after add_library(target)
+function(sgnus_install target)
+    install(TARGETS ${target} EXPORT ProofSystemTargets
+        LIBRARY       DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE       DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME       DESTINATION ${CMAKE_INSTALL_BINDIR}
+        INCLUDES      DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+        FRAMEWORK     DESTINATION ${CMAKE_INSTALL_PREFIX}
+        BUNDLE        DESTINATION ${CMAKE_INSTALL_BINDIR}
+        )
+endfunction()
+
