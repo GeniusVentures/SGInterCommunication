@@ -1,8 +1,6 @@
 syntax = "proto3";
 
-package sgipc;
-
-option cpp_namespace = "sgipc::proto";
+package sgipc.proto;
 
 // Message types for IPC communication
 enum MessageType {

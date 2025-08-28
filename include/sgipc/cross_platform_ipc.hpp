@@ -8,10 +8,10 @@
 #include <cstdint>
 
 #include "ipc_messages.pb.h"
+
 namespace sgipc
 {
     using MessageCallback = std::function<void( const proto::IPCMessage &message, const std::string &senderAddress )>;
-#endif
 
     /**
  * @brief Status codes for IPC operations
@@ -170,7 +170,6 @@ namespace sgipc
      * @param message Output message
      * @return true on success, false on failure
      */
-#ifdef SGIPC_MINIMAL_BUILD
         bool DeserializeMessage( const std::vector<uint8_t> &data, proto::IPCMessage &message ) const;
     };
 
