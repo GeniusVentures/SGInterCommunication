@@ -16,11 +16,13 @@ if(DEFINED USE_BOOST_INCLUDE_POSTFIX)
 endif()
 
 # --------------------------------------------------------
-# Set config of GTest
+# Set config of GTest (Optional)
 set(GTest_DIR "${_THIRDPARTY_BUILD_DIR}/GTest/lib/cmake/GTest")
 set(GTest_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/GTest/include")
-find_package(GTest CONFIG REQUIRED)
-include_directories(${GTest_INCLUDE_DIR})
+find_package(GTest CONFIG QUIET)
+if(GTest_FOUND)
+    include_directories(${GTest_INCLUDE_DIR})
+endif()
 add_compile_definitions(CRYPTO3_CODEC_BASE58)
 
 # Boost should be loaded before libp2p v0.1.2
@@ -51,8 +53,10 @@ set(Boost_NO_SYSTEM_PATHS ON)
 option(Boost_USE_STATIC_RUNTIME "Use static runtimes" ON)
 
 # header only libraries must not be added here
-find_package(Boost REQUIRED COMPONENTS date_time filesystem random regex system thread log log_setup program_options)
-include_directories(${Boost_INCLUDE_DIRS})
+find_package(Boost QUIET COMPONENTS date_time filesystem random regex system thread log log_setup program_options)
+if(Boost_FOUND)
+    include_directories(${Boost_INCLUDE_DIRS})
+endif()
 
 # --------------------------------------------------------
 # set config for crypto3
@@ -71,7 +75,7 @@ include("${CMAKE_CURRENT_LIST_DIR}/../src/CMakeLists.txt")
 
 if(BUILD_TESTS)
         add_executable(${PROJECT_NAME}_test
-                "${CMAKE_CURRENT_LIST_DIR}/../test/rlp_test.cpp"
+                "${CMAKE_CURRENT_LIST_DIR}/../test/sgipc_test.cpp"
         )
         target_link_libraries(${PROJECT_NAME}_test PUBLIC ${PROJECT_NAME} GTest::gtest)
 endif()
@@ -79,7 +83,7 @@ endif()
 # Install Headers
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/include/" DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}" FILES_MATCHING PATTERN "*.h*")
 
-install(TARGETS ${PROJECT_NAME} EXPORT RLPTargets
+install(TARGETS ${PROJECT_NAME} EXPORT SGIPCTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -90,35 +94,35 @@ install(TARGETS ${PROJECT_NAME} EXPORT RLPTargets
 )
 
 install(
-        EXPORT RLPTargets
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rlp
-        NAMESPACE rlp::
+        EXPORT SGIPCTargets
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sgipc
+        NAMESPACE sgipc::
 )
 
 include(CMakePackageConfigHelpers)
 
 # generate the config file that is includes the exports
-configure_package_config_file(${PROJECT_ROOT}/cmake/config.cmake.in
-        "${CMAKE_CURRENT_BINARY_DIR}/RLPConfig.cmake"
-        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rlp
+configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/config.cmake.in
+        "${CMAKE_CURRENT_BINARY_DIR}/SGIPCConfig.cmake"
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sgipc
         NO_SET_AND_CHECK_MACRO
         NO_CHECK_REQUIRED_COMPONENTS_MACRO
 )
 
 # generate the version file for the config file
 write_basic_package_version_file(
-        "${CMAKE_CURRENT_BINARY_DIR}/RLPConfigVersion.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/SGIPCConfigVersion.cmake"
         VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}"
         COMPATIBILITY AnyNewerVersion
 )
 
 # install the configuration file
 install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/RLPConfigVersion.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rlp
+        ${CMAKE_CURRENT_BINARY_DIR}/SGIPCConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sgipc
 )
 
 install(FILES
-        ${CMAKE_CURRENT_BINARY_DIR}/RLPConfig.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rlp
+        ${CMAKE_CURRENT_BINARY_DIR}/SGIPCConfig.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/sgipc
 )

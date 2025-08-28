@@ -7,13 +7,6 @@
 #include <chrono>
 #include <cstdint>
 
-#ifdef SGIPC_MINIMAL_BUILD
-#include "sgipc/simple_messages.hpp"
-namespace sgipc
-{
-    using MessageCallback =
-        std::function<void( const simple::SimpleMessage &message, const std::string &senderAddress )>;
-#else
 #include "ipc_messages.pb.h"
 namespace sgipc
 {
@@ -110,21 +103,13 @@ namespace sgipc
      * @param recipientId Target instance ID (empty for broadcast)
      * @return IPCStatus indicating success or failure
      */
-#ifdef SGIPC_MINIMAL_BUILD
-        virtual IPCStatus SendMessage( const simple::SimpleMessage &message, const std::string &recipientId = "" ) = 0;
-#else
         virtual IPCStatus SendMessage( const proto::IPCMessage &message, const std::string &recipientId = "" ) = 0;
-#endif
 
         /**
      * @brief Get list of discovered instances
      * @return Vector of discovered service announcements
      */
-#ifdef SGIPC_MINIMAL_BUILD
-        virtual std::vector<simple::SimpleMessage> GetDiscoveredInstances() const = 0;
-#else
         virtual std::vector<proto::DiscoveryAnnouncement> GetDiscoveredInstances() const = 0;
-#endif
 
         /**
      * @brief Check if the backend is available on current platform
@@ -177,11 +162,7 @@ namespace sgipc
      * @param output Output byte vector
      * @return true on success, false on failure
      */
-#ifdef SGIPC_MINIMAL_BUILD
-        bool SerializeMessage( const simple::SimpleMessage &message, std::vector<uint8_t> &output ) const;
-#else
         bool SerializeMessage( const proto::IPCMessage &message, std::vector<uint8_t> &output ) const;
-#endif
 
         /**
      * @brief Deserialize bytes to IPC message
@@ -190,10 +171,7 @@ namespace sgipc
      * @return true on success, false on failure
      */
 #ifdef SGIPC_MINIMAL_BUILD
-        bool DeserializeMessage( const std::vector<uint8_t> &data, simple::SimpleMessage &message ) const;
-#else
         bool DeserializeMessage( const std::vector<uint8_t> &data, proto::IPCMessage &message ) const;
-#endif
     };
 
     /**

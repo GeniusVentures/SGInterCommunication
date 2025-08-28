@@ -56,7 +56,7 @@ endfunction()
 
 ### sgnus_install should be called right after add_library(target)
 function(sgnus_install target)
-    install(TARGETS ${target} EXPORT ProofSystemTargets
+    install(TARGETS ${target} EXPORT SGIPCTargets
         LIBRARY       DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE       DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME       DESTINATION ${CMAKE_INSTALL_BINDIR}
