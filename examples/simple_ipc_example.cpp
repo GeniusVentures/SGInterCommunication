@@ -80,7 +80,7 @@ int main()
 
         std::cout << "Received message #" << message_count.load() << std::endl;
         std::cout << "  Type: " << static_cast<int>( message.type() ) << std::endl;
-        std::cout << "  Sender: " << message.senderId() << std::endl;
+        std::cout << "  Sender: " << message.sender_id() << std::endl;
         std::cout << "  Timestamp: " << message.timestamp() << std::endl;
         std::cout << "  From: " << sender << std::endl;
 
@@ -88,7 +88,7 @@ int main()
         {
             heartbeat_count++;
             const auto &heartbeat = message.heartbeat();
-            std::cout << "  Heartbeat from instance: " << heartbeat.instanceId() << std::endl;
+            std::cout << "  Heartbeat from instance: " << heartbeat.instance_id() << std::endl;
             std::cout << "  Port: " << heartbeat.port() << std::endl;
             std::cout << "  Version: " << heartbeat.version() << std::endl;
         }
@@ -144,7 +144,7 @@ int main()
 #else
             for ( const auto &instance : instances )
             {
-                std::cout << "  - " << instance.instanceId() << " on port " << instance.port() << std::endl;
+                std::cout << "  - " << instance.instance_id() << " on port " << instance.port() << std::endl;
             }
 #endif
         }

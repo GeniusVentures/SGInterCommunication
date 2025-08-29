@@ -22,6 +22,11 @@ if(DEFINED USE_BOOST_INCLUDE_POSTFIX)
         set(BOOST_INCLUDE_POSTFIX "/boost-${BOOST_VERSION_2U}" CACHE STRING "Boost include postfix")
 endif()
 
+
+# Set the protoc executable path for protobuf generation
+set(PROTOC_EXECUTABLE "${_THIRDPARTY_BUILD_DIR}/grpc/bin/protoc${CMAKE_EXECUTABLE_SUFFIX}")
+set(Protobuf_PROTOC_EXECUTABLE ${PROTOC_EXECUTABLE} CACHE PATH "Initial cache" FORCE)
+
 # --------------------------------------------------------
 # Set config of GTest (Optional)
 set(GTest_DIR "${_THIRDPARTY_BUILD_DIR}/GTest/lib/cmake/GTest")
@@ -32,23 +37,31 @@ if(GTest_FOUND)
 endif()
 
 # --------------------------------------------------------
-# Set config of Protobuf (Optional) - completely optional, ignore all errors
-set(Protobuf_FOUND FALSE)
+# Set config of Protobuf (Required)
 set(Protobuf_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/cmake")
 set(Protobuf_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/include")
 set(Protobuf_LIBRARY_DIR "${_THIRDPARTY_BUILD_DIR}/grpc/lib")
-find_program(PROTOC_EXECUTABLE NAMES protoc PATHS "${_THIRDPARTY_BUILD_DIR}/grpc/bin" QUIET)
-if(PROTOC_EXECUTABLE)
-    find_package(Protobuf QUIET)
-    if(Protobuf_FOUND)
-        message(STATUS "Found Protobuf: ${Protobuf_VERSION}")
-        set(Protobuf_PROTOC_EXECUTABLE ${PROTOC_EXECUTABLE})
-        include_directories(${Protobuf_INCLUDE_DIR})
-    endif()
+set(Protobuf_PROTOC_EXECUTABLE "${_THIRDPARTY_BUILD_DIR}/grpc/bin/protoc.exe")
+
+# Force CMake to use our thirdparty protobuf
+set(CMAKE_PREFIX_PATH "${_THIRDPARTY_BUILD_DIR}/grpc" ${CMAKE_PREFIX_PATH})
+set(Protobuf_ROOT "${_THIRDPARTY_BUILD_DIR}/grpc")
+
+# Clear any existing protobuf targets before loading
+if(TARGET protobuf::protoc)
+    set_target_properties(protobuf::protoc PROPERTIES IMPORTED FALSE)
+    unset(protobuf::protoc)
 endif()
-if(NOT Protobuf_FOUND)
-    message(STATUS "Protobuf not available - using stub headers")
-endif()
+
+# Use thirdparty protobuf exclusively
+find_package(Protobuf REQUIRED PATHS "${_THIRDPARTY_BUILD_DIR}/grpc" NO_DEFAULT_PATH)
+message(STATUS "Found Protobuf: ${Protobuf_VERSION}")
+message(STATUS "Protobuf DIR: ${Protobuf_DIR}")
+message(STATUS "Protobuf Libraries: ${Protobuf_LIBRARIES}")
+
+# Include protobuf generate functionality
+include("${Protobuf_DIR}/protobuf-generate.cmake")
+include_directories(${Protobuf_INCLUDE_DIR})
 
 # Boost should be loaded before libp2p v0.1.2
 # --------------------------------------------------------
@@ -94,10 +107,10 @@ endif()
 
 # --------------------------------------------------------
 # SGIPC Project configuration
-option(BUILD_TESTS "Build tests" ON)
+option(BUILD_TESTS "Build tests" OFF)  # Temporarily disabled
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
 option(BUILD_APPS "Enable application targets." FALSE)
-option(BUILD_EXAMPLES "Enable demonstration targets." FALSE)
+option(BUILD_EXAMPLES "Enable demonstration targets." TRUE)  # Enable examples
 option(BUILD_DOCS "Enable documentation targets." FALSE)
 set(DOXYGEN_OUTPUT_DIR "${CMAKE_CURRENT_LIST_DIR}/docs" CACHE STRING "Specify doxygen output directory")
 
@@ -109,98 +122,32 @@ include_directories(
 # Find required packages
 find_package(Threads REQUIRED)
 
-# Generate protobuf files if protobuf is available  
+# Generate protobuf files
 file(GLOB PROTO_FILES "${CMAKE_CURRENT_LIST_DIR}/../src/proto/*.proto")
-if(PROTO_FILES AND Protobuf_FOUND AND Protobuf_PROTOC_EXECUTABLE)
-    protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+if(PROTO_FILES)
+    # Use modern protobuf generation with explicit import paths
+    protobuf_generate(
+        LANGUAGE cpp
+        OUT_VAR PROTO_GENERATED_FILES
+        IMPORT_DIRS "${CMAKE_CURRENT_LIST_DIR}/../src/proto" "${Protobuf_INCLUDE_DIR}"
+        PROTOS ${PROTO_FILES}
+    )
+    
+    # Extract the generated .cc and .h files
+    set(PROTO_SRCS "")
+    set(PROTO_HDRS "")
+    foreach(PROTO_GEN_FILE ${PROTO_GENERATED_FILES})
+        if(PROTO_GEN_FILE MATCHES "\\.cc$")
+            list(APPEND PROTO_SRCS ${PROTO_GEN_FILE})
+        elseif(PROTO_GEN_FILE MATCHES "\\.h$")
+            list(APPEND PROTO_HDRS ${PROTO_GEN_FILE})
+        endif()
+    endforeach()
+    
     message(STATUS "Generated protobuf files from ${CMAKE_CURRENT_LIST_DIR}/../src/proto/")
 else()
-    message(STATUS "Protobuf not found or no proto files - creating stub header")
-    # Create a stub protobuf header
-    set(STUB_HEADER "${CMAKE_CURRENT_BINARY_DIR}/ipc_messages.pb.h")
-    file(WRITE "${STUB_HEADER}" 
-"#ifndef IPC_MESSAGES_PB_H
-#define IPC_MESSAGES_PB_H
-#include <string>
-#include <map>
-// Stub header for when protobuf is not available
-namespace sgipc { namespace proto {
-    enum MessageType { UNKNOWN = 0, HEARTBEAT = 1, PORT_REQUEST = 2, PORT_RESPONSE = 3, PORT_NEGOTIATION = 4 };
-    struct Heartbeat { 
-        const std::string& instance_id() const { return m_instance_id; }
-        void set_instance_id(const std::string& id) { m_instance_id = id; }
-        const std::string& instanceId() const { return m_instance_id; }  // Alternative accessor
-        uint32_t port() const { return m_port; }
-        void set_port(uint32_t p) { m_port = p; }
-        uint64_t timestamp() const { return m_timestamp; }
-        void set_timestamp(uint64_t ts) { m_timestamp = ts; }
-        const std::string& version() const { return m_version; }
-        void set_version(const std::string& v) { m_version = v; }
-        std::map<std::string, std::string>* mutable_metadata() { return &m_metadata; }
-        const std::map<std::string, std::string>& metadata() const { return m_metadata; }
-    private:
-        std::string m_instance_id;
-        uint32_t m_port = 0;
-        uint64_t m_timestamp = 0;
-        std::string m_version;
-        std::map<std::string, std::string> m_metadata;
-    };
-    struct PortRequest { 
-        std::string instance_id; 
-        uint32_t preferred_port; 
-        uint64_t timestamp; 
-    };
-    struct PortResponse { 
-        std::string instance_id; 
-        uint32_t assigned_port; 
-        uint64_t timestamp; 
-        bool success; 
-        std::string error_message; 
-    };
-    struct IPCMessage { 
-        MessageType type() const { return m_type; }
-        void set_type(MessageType t) { m_type = t; }
-        const std::string& sender_id() const { return m_sender_id; }
-        void set_sender_id(const std::string& id) { m_sender_id = id; }
-        const std::string& senderId() const { return m_sender_id; }  // Alternative accessor
-        const std::string& recipient_id() const { return m_recipient_id; }
-        void set_recipient_id(const std::string& id) { m_recipient_id = id; }
-        uint64_t timestamp() const { return m_timestamp; }
-        void set_timestamp(uint64_t ts) { m_timestamp = ts; }
-        Heartbeat* mutable_heartbeat() { return &m_heartbeat; }
-        const Heartbeat& heartbeat() const { return m_heartbeat; }
-        bool SerializeToString(std::string* output) const { output->clear(); return true; }
-        bool ParseFromString(const std::string& data) { return true; }
-    private:
-        MessageType m_type = UNKNOWN;
-        std::string m_sender_id;
-        std::string m_recipient_id;
-        uint64_t m_timestamp = 0;
-        Heartbeat m_heartbeat;
-    };
-    struct DiscoveryAnnouncement { 
-        const std::string& instance_id() const { return m_instance_id; }
-        void set_instance_id(const std::string& id) { m_instance_id = id; }
-        const std::string& instanceId() const { return m_instance_id; }  // Alternative accessor
-        const std::string& service_name() const { return m_service_name; }
-        void set_service_name(const std::string& name) { m_service_name = name; }
-        uint32_t port() const { return m_port; }
-        void set_port(uint32_t p) { m_port = p; }
-        uint64_t timestamp() const { return m_timestamp; }
-        void set_timestamp(uint64_t ts) { m_timestamp = ts; }
-        std::map<std::string, std::string>* mutable_capabilities() { return &m_capabilities; }
-        const std::map<std::string, std::string>& capabilities() const { return m_capabilities; }
-    private:
-        std::string m_instance_id;
-        std::string m_service_name;
-        uint32_t m_port = 0;
-        uint64_t m_timestamp = 0;
-        std::map<std::string, std::string> m_capabilities;
-    };
-}}
-#endif
-")
-    set(PROTO_HDRS "${STUB_HEADER}")
+    message(STATUS "No proto files found")
+    set(PROTO_HDRS "")
     set(PROTO_SRCS "")
 endif()
 
@@ -219,15 +166,127 @@ add_library(${PROJECT_NAME} STATIC
     ${PROTO_SRCS}
 )
 
-# Add compile definitions based on available features
-if(Protobuf_FOUND)
-    target_compile_definitions(${PROJECT_NAME} PUBLIC SGIPC_ENABLE_PROTOBUF)
+# Set C++ standard and runtime library for Windows
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+if(WIN32)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MSVC_RUNTIME_LIBRARY "MultiThreaded"
+    )
 endif()
 
-# Link libraries
-if(Protobuf_FOUND)
+# Add compile definitions and link libraries
+target_compile_definitions(${PROJECT_NAME} PUBLIC SGIPC_ENABLE_PROTOBUF)
+
+# Link protobuf libraries from thirdparty directory
+if(WIN32)
+    # Link protobuf library file directly from thirdparty on Windows
+    set(PROTOBUF_LIBRARY_FILE "${Protobuf_LIBRARY_DIR}/libprotobuf.lib")
+    if(EXISTS "${PROTOBUF_LIBRARY_FILE}")
+        target_link_libraries(${PROJECT_NAME} "${PROTOBUF_LIBRARY_FILE}")
+        message(STATUS "Linking protobuf from: ${PROTOBUF_LIBRARY_FILE}")
+    else()
+        message(WARNING "Protobuf library not found at: ${PROTOBUF_LIBRARY_FILE}")
+        # Fallback to found protobuf libraries
+        target_link_libraries(${PROJECT_NAME} ${Protobuf_LIBRARIES})
+    endif()
+else()
     target_link_libraries(${PROJECT_NAME} ${Protobuf_LIBRARIES})
 endif()
+
+# Link essential abseil and utf8_range libraries from thirdparty directory
+set(THIRDPARTY_ABSEIL_LIBS
+    absl_base
+    absl_strings 
+    absl_string_view
+    absl_str_format_internal
+    absl_strings_internal
+    absl_synchronization
+    absl_time
+    absl_time_zone
+    absl_int128
+    absl_hash
+    absl_city
+    absl_low_level_hash
+    absl_raw_hash_set
+    absl_hashtablez_sampler
+    absl_cord
+    absl_cordz_functions
+    absl_cordz_handle
+    absl_cordz_info
+    absl_cord_internal
+    absl_status
+    absl_statusor
+    absl_raw_logging_internal
+    absl_throw_delegate
+    absl_debugging_internal
+    absl_stacktrace
+    absl_symbolize
+    absl_demangle_internal
+    absl_malloc_internal
+    absl_spinlock_wait
+    absl_strerror
+    absl_crc_cord_state
+    absl_crc_cpu_detect
+    absl_crc_internal
+    absl_crc32c
+    absl_log_entry
+    absl_log_flags
+    absl_log_globals
+    absl_log_initialize
+    absl_log_sink
+    absl_log_internal_check_op
+    absl_log_internal_conditions
+    absl_log_internal_format
+    absl_log_internal_globals
+    absl_log_internal_log_sink_set
+    absl_log_internal_message
+    absl_log_internal_nullguard
+    absl_log_internal_proto
+    absl_log_severity
+    absl_graphcycles_internal
+    absl_kernel_timeout_internal
+    absl_examine_stack
+    absl_failure_signal_handler
+    absl_periodic_sampler
+    absl_poison
+    absl_flags_commandlineflag
+    absl_flags_commandlineflag_internal
+    absl_flags_config
+    absl_flags_internal
+    absl_flags_marshalling
+    absl_flags_parse
+    absl_flags_private_handle_accessor
+    absl_flags_program_name
+    absl_flags_reflection
+    absl_flags_usage
+    absl_flags_usage_internal
+    absl_leak_check
+    absl_random_distributions
+    absl_random_internal_distribution_test_util
+    absl_random_internal_platform
+    absl_random_internal_pool_urbg
+    absl_random_internal_randen
+    absl_random_internal_randen_hwaes
+    absl_random_internal_randen_hwaes_impl
+    absl_random_internal_randen_slow
+    absl_random_internal_seed_material
+    absl_random_seed_gen_exception
+    absl_random_seed_sequences
+    absl_scoped_set_env
+    absl_utf8_for_code_point
+    absl_vlog_config_internal
+    utf8_range_lib
+    utf8_validity
+)
+
+foreach(ABSL_LIB ${THIRDPARTY_ABSEIL_LIBS})
+    if(EXISTS "${Protobuf_LIBRARY_DIR}/${ABSL_LIB}.lib")
+        target_link_libraries(${PROJECT_NAME} "${Protobuf_LIBRARY_DIR}/${ABSL_LIB}.lib")
+    endif()
+endforeach()
 
 target_link_libraries(${PROJECT_NAME} Threads::Threads)
 

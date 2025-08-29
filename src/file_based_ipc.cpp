@@ -548,7 +548,7 @@ namespace sgipc
         }
 
         // Don't process our own messages
-        if ( message.senderId() == m_config.instanceId )
+        if ( message.sender_id() == m_config.instanceId )
         {
             return;
         }
@@ -559,7 +559,7 @@ namespace sgipc
             const auto &heartbeat = message.heartbeat();
 
             proto::DiscoveryAnnouncement announcement;
-            announcement.set_instance_id( heartbeat.instanceId() );
+            announcement.set_instance_id( heartbeat.instance_id() );
             announcement.set_port( heartbeat.port() );
             announcement.set_timestamp( heartbeat.timestamp() );
 
@@ -569,7 +569,7 @@ namespace sgipc
             auto it = std::find_if( m_discoveredInstances.begin(),
                                     m_discoveredInstances.end(),
                                     [&]( const proto::DiscoveryAnnouncement &existing )
-                                    { return existing.instanceId() == announcement.instanceId(); } );
+                                    { return existing.instance_id() == announcement.instance_id(); } );
 
             if ( it != m_discoveredInstances.end() )
             {
