@@ -87,7 +87,6 @@ namespace sgipc
         }
 
         // Basic cleanup for libp2p resources
-        std::cout << "libp2p resources cleaned up (basic implementation)" << std::endl;
 
         m_initialized.store( false );
         return IPCStatus::SUCCESS;
@@ -115,7 +114,6 @@ namespace sgipc
                                       .count() );
 
         // Basic implementation - just log the heartbeat for now
-        std::cout << "libp2p: Sending heartbeat for port " << port << std::endl;
 
         return IPCStatus::SUCCESS;
     }
@@ -169,7 +167,6 @@ namespace sgipc
         m_cleanupThread   = std::thread( &Libp2pIPC::PeerCleanupThread, this );
 
         // libp2p listening is already started in StartDiscoveryService
-        std::cout << "libp2p listening started" << std::endl;
 
         return IPCStatus::SUCCESS;
     }
@@ -189,7 +186,6 @@ namespace sgipc
 
         // Basic implementation - for now just log the message
         // Full libp2p message sending will be added once compilation works
-        std::cout << "libp2p: Sending message of type " << static_cast<int>( message.type() ) << std::endl;
         return IPCStatus::SUCCESS;
     }
 
@@ -235,7 +231,6 @@ namespace sgipc
         {
             // For now, use a basic initialization without complex dependencies
             // This is a minimal implementation to get compilation working
-            std::cout << "libp2p node initialized (basic implementation)" << std::endl;
             return true;
         }
         catch ( const std::exception &e )
@@ -249,7 +244,6 @@ namespace sgipc
     {
         // Basic implementation - for now just return true
         // Full GossipSub integration will be added once basic libp2p compilation works
-        std::cout << "GossipSub topic setup (basic implementation)" << std::endl;
         return true;
     }
 
@@ -257,7 +251,6 @@ namespace sgipc
     {
         // Basic implementation - for now just return true
         // Full discovery service will be added once basic libp2p compilation works
-        std::cout << "Discovery service started (basic implementation)" << std::endl;
         return true;
     }
 
