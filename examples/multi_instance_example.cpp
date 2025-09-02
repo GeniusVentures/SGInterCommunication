@@ -16,14 +16,14 @@ public:
     bool initialize()
     {
         // Create IPC instance
-        ipc_ = sgipc::createPlatformIPC();
+        ipc_ = sgipc::CreatePlatformIPC();
         if ( !ipc_ )
         {
             std::cerr << "[" << instance_name_ << "] Failed to create IPC instance" << std::endl;
             return false;
         }
 
-        std::cout << "[" << instance_name_ << "] Using backend: " << ipc_->getBackendName() << std::endl;
+        std::cout << "[" << instance_name_ << "] Using backend: " << ipc_->GetBackendName() << std::endl;
 
         // Configure IPC
         sgipc::IPCConfig config;
@@ -35,20 +35,20 @@ public:
         config.allowFallback     = true;
 
         // Initialize IPC
-        auto status = ipc_->init( config );
+        auto status = ipc_->Init( config );
         if ( status != sgipc::IPCStatus::SUCCESS )
         {
-            std::cerr << "[" << instance_name_ << "] Failed to initialize IPC: " << sgipc::toString( status )
+            std::cerr << "[" << instance_name_ << "] Failed to initialize IPC: " << static_cast<int>( status )
                       << std::endl;
             return false;
         }
 
         // Negotiate port
         uint16_t assignedPort = 0;
-        status                = ipc_->negotiatePort( preferred_port_, assignedPort );
+        status                = ipc_->NegotiatePort( preferred_port_, assignedPort );
         if ( status != sgipc::IPCStatus::SUCCESS )
         {
-            std::cerr << "[" << instance_name_ << "] Failed to negotiate port: " << sgipc::toString( status )
+            std::cerr << "[" << instance_name_ << "] Failed to negotiate port: " << static_cast<int>( status )
                       << std::endl;
             return false;
         }
@@ -73,10 +73,10 @@ public:
         { handleMessage( message, sender ); };
 
         // Start listening
-        auto status = ipc_->listenForMessages( callback );
+        auto status = ipc_->ListenForMessages( callback );
         if ( status != sgipc::IPCStatus::SUCCESS )
         {
-            std::cerr << "[" << instance_name_ << "] Failed to start listening: " << sgipc::toString( status )
+            std::cerr << "[" << instance_name_ << "] Failed to start listening: " << static_cast<int>( status )
                       << std::endl;
             return;
         }
@@ -100,8 +100,8 @@ public:
 
         if ( ipc_ )
         {
-            ipc_->stopListening();
-            ipc_->shutdown();
+            ipc_->StopListening();
+            ipc_->Shutdown();
         }
 
         std::cout << "[" << instance_name_ << "] Instance stopped." << std::endl;
@@ -133,7 +133,7 @@ public:
         ( *heartbeat->mutable_metadata() )["custom_data"]  = custom_data;
         ( *heartbeat->mutable_metadata() )["message_type"] = "custom_message";
 
-        auto status = ipc_->sendMessage( message, target_instance );
+        auto status = ipc_->SendMessage( message, target_instance );
         if ( status == sgipc::IPCStatus::SUCCESS )
         {
             std::cout << "[" << instance_name_ << "] Sent custom message to " << target_instance << ": " << custom_data
@@ -141,7 +141,7 @@ public:
         }
         else
         {
-            std::cerr << "[" << instance_name_ << "] Failed to send message: " << sgipc::toString( status )
+            std::cerr << "[" << instance_name_ << "] Failed to send message: " << static_cast<int>( status )
                       << std::endl;
         }
     }
@@ -153,14 +153,14 @@ public:
             return {};
         }
 
-        auto                     announcements = ipc_->getDiscoveredInstances();
+        auto                     announcements = ipc_->GetDiscoveredInstances();
         std::vector<std::string> instances;
 
         for ( const auto &announcement : announcements )
         {
-            if ( announcement.instanceId() != instance_name_ )
+            if ( announcement.instance_id() != instance_name_ )
             {
-                instances.push_back( announcement.instanceId() );
+                instances.push_back( announcement.instance_id() );
             }
         }
 
@@ -183,13 +183,13 @@ private:
         messages_received_++;
 
         // Don't process our own messages
-        if ( message.senderId() == instance_name_ )
+        if ( message.sender_id() == instance_name_ )
         {
             return;
         }
 
         std::cout << "[" << instance_name_ << "] Received message #" << messages_received_.load() << " from "
-                  << message.senderId() << std::endl;
+                  << message.sender_id() << std::endl;
 
         if ( message.type() == sgipc::proto::MessageType::HEARTBEAT )
         {
@@ -209,7 +209,7 @@ private:
             }
             else
             {
-                std::cout << "[" << instance_name_ << "] Regular heartbeat from " << heartbeat.instanceId()
+                std::cout << "[" << instance_name_ << "] Regular heartbeat from " << heartbeat.instance_id()
                           << " on port " << heartbeat.port() << std::endl;
             }
         }
@@ -221,10 +221,10 @@ private:
         {
             if ( ipc_ )
             {
-                auto status = ipc_->sendHeartbeat( m_assignedPort );
+                auto status = ipc_->SendHeartbeat( m_assignedPort );
                 if ( status != sgipc::IPCStatus::SUCCESS )
                 {
-                    std::cerr << "[" << instance_name_ << "] Failed to send heartbeat: " << sgipc::toString( status )
+                    std::cerr << "[" << instance_name_ << "] Failed to send heartbeat: " << static_cast<int>( status )
                               << std::endl;
                 }
             }
