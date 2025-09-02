@@ -38,7 +38,7 @@ public:
                       << std::endl;
 
             // Create IPC instance
-            instance.ipc = sgipc::createPlatformIPC();
+            instance.ipc = sgipc::CreatePlatformIPC();
             if ( !instance.ipc )
             {
                 std::cerr << "Failed to create IPC for " << instance.name << std::endl;
@@ -55,19 +55,19 @@ public:
             config.allowFallback     = true;
 
             // Initialize IPC
-            auto status = instance.ipc->init( config );
+            auto status = instance.ipc->Init( config );
             if ( status != sgipc::IPCStatus::SUCCESS )
             {
-                std::cerr << "Failed to initialize IPC for " << instance.name << ": " << sgipc::toString( status )
+                std::cerr << "Failed to initialize IPC for " << instance.name << ": " << sgipc::ToString( status )
                           << std::endl;
                 continue;
             }
 
             // Negotiate port
-            status = instance.ipc->negotiatePort( instance.preferredPort, instance.assignedPort );
+            status = instance.ipc->NegotiatePort( instance.preferredPort, instance.assignedPort );
             if ( status != sgipc::IPCStatus::SUCCESS )
             {
-                std::cerr << "Failed to negotiate port for " << instance.name << ": " << sgipc::toString( status )
+                std::cerr << "Failed to negotiate port for " << instance.name << ": " << sgipc::ToString( status )
                           << std::endl;
                 continue;
             }
@@ -75,7 +75,7 @@ public:
             instance.initialized = true;
 
             std::cout << "✓ " << instance.name << " initialized successfully" << std::endl;
-            std::cout << "  Backend: " << instance.ipc->getBackendName() << std::endl;
+            std::cout << "  Backend: " << instance.ipc->GetBackendName() << std::endl;
             std::cout << "  Preferred port: " << instance.preferredPort << std::endl;
             std::cout << "  Assigned port: " << instance.assignedPort << std::endl;
 
@@ -123,14 +123,14 @@ public:
 
             auto callback = [&instance]( const sgipc::proto::IPCMessage &message, const std::string &sender )
             {
-                if ( message.senderId() != instance.name )
+                if ( message.sender_id() != instance.name )
                 {
-                    std::cout << "[" << instance.name << "] Received message from " << message.senderId() << " (port "
+                    std::cout << "[" << instance.name << "] Received message from " << message.sender_id() << " (port "
                               << message.heartbeat().port() << ")" << std::endl;
                 }
             };
 
-            auto status = instance.ipc->listenForMessages( callback );
+            auto status = instance.ipc->ListenForMessages( callback );
             if ( status != sgipc::IPCStatus::SUCCESS )
             {
                 std::cerr << "Failed to start listening for " << instance.name << std::endl;
@@ -146,14 +146,14 @@ public:
                 continue;
             }
 
-            auto status = instance.ipc->sendHeartbeat( instance.assignedPort );
+            auto status = instance.ipc->SendHeartbeat( instance.assignedPort );
             if ( status == sgipc::IPCStatus::SUCCESS )
             {
                 std::cout << "✓ Heartbeat sent from " << instance.name << std::endl;
             }
             else
             {
-                std::cerr << "✗ Failed to send heartbeat from " << instance.name << ": " << sgipc::toString( status )
+                std::cerr << "✗ Failed to send heartbeat from " << instance.name << ": " << sgipc::ToString( status )
                           << std::endl;
             }
         }
@@ -170,7 +170,7 @@ public:
         {
             if ( instance.initialized )
             {
-                instance.ipc->stopListening();
+                instance.ipc->StopListening();
             }
         }
     }
@@ -182,7 +182,7 @@ public:
         {
             if ( instance.initialized )
             {
-                instance.ipc->shutdown();
+                instance.ipc->Shutdown();
                 std::cout << "✓ " << instance.name << " shutdown complete" << std::endl;
             }
         }
@@ -269,15 +269,15 @@ private:
                 continue;
             }
 
-            auto discovered = instance.ipc->getDiscoveredInstances();
+            auto discovered = instance.ipc->GetDiscoveredInstances();
             std::cout << "[" << instance.name << "] Discovered " << discovered.size()
                       << " other instance(s):" << std::endl;
 
             for ( const auto &announcement : discovered )
             {
-                if ( announcement.instanceId() != instance.name )
+                if ( announcement.instance_id() != instance.name )
                 {
-                    std::cout << "  - " << announcement.instanceId() << " on port " << announcement.port() << std::endl;
+                    std::cout << "  - " << announcement.instance_id() << " on port " << announcement.port() << std::endl;
                 }
             }
         }
