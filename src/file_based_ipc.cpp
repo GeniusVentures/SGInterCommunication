@@ -1,7 +1,6 @@
 #include "sgipc/file_based_ipc.hpp"
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <algorithm>
 
 #ifdef _WIN32
@@ -303,7 +302,6 @@ namespace sgipc
         }
         catch ( const std::exception &e )
         {
-            std::cerr << "Failed to create IPC directories: " << e.what() << std::endl;
             return false;
         }
     }

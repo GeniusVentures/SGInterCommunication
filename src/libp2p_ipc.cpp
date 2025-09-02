@@ -1,6 +1,5 @@
 #include "sgipc/libp2p_ipc.hpp"
 #include "ipc_messages.pb.h"
-#include <iostream>
 #include <algorithm>
 #include <random>
 #include <cassert>
@@ -235,7 +234,6 @@ namespace sgipc
         }
         catch ( const std::exception &e )
         {
-            std::cerr << "Exception during libp2p initialization: " << e.what() << std::endl;
             return false;
         }
     }
@@ -267,7 +265,6 @@ namespace sgipc
         proto::IPCMessage message;
         if ( !message.ParseFromArray( data.data(), static_cast<int>( data.size() ) ) )
         {
-            std::cerr << "Failed to parse received message" << std::endl;
             return;
         }
 
