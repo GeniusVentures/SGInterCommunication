@@ -7,6 +7,13 @@
 #include <condition_variable>
 #include <unordered_map>
 
+#ifdef SGIPC_LIBP2P_AVAILABLE
+// Forward declarations for libp2p types to avoid exposing headers
+namespace libp2p::host { class Host; }
+namespace libp2p::multi { class Multiaddress; }
+namespace libp2p::peer { class PeerId; }
+#endif
+
 namespace sgipc
 {
 
@@ -118,10 +125,16 @@ namespace sgipc
         std::atomic<bool>     m_shutdownRequested{ false };
         std::atomic<uint16_t> m_assignedPort{ 0 };
 
-        // libp2p components (using void* to avoid exposing libp2p headers)
+        // libp2p components
+#ifdef SGIPC_LIBP2P_AVAILABLE
+        // Basic implementation - no complex libp2p objects for now
+        // These will be added when we implement full libp2p integration
+#else
+        // Use void* pointers when libp2p is not available (stub implementation)
         void *m_libp2pHost{ nullptr };
         void *m_pubsubService{ nullptr };
         void *m_discoveryService{ nullptr };
+#endif
 
         // Threading
         std::thread     m_heartbeatThread;

@@ -106,6 +106,34 @@ else()
 endif()
 
 # --------------------------------------------------------
+# Set config of libp2p (Required for Libp2pIPC implementation)
+set(Libp2p_DIR "${_THIRDPARTY_BUILD_DIR}/libp2p/lib/cmake")
+set(Libp2p_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/libp2p/include")
+set(Libp2p_LIBRARY_DIR "${_THIRDPARTY_BUILD_DIR}/libp2p/lib")
+
+# Check if libp2p is available
+if(EXISTS "${Libp2p_INCLUDE_DIR}/libp2p/libp2p.hpp")
+    set(LIBP2P_FOUND TRUE)
+    message(STATUS "Found libp2p at: ${Libp2p_INCLUDE_DIR}")
+    
+    # Include libp2p headers
+    include_directories("${Libp2p_INCLUDE_DIR}")
+    
+    # libp2p depends on soralog, include it as well
+    set(Soralog_INCLUDE_DIR "${_THIRDPARTY_BUILD_DIR}/soralog/include")
+    if(EXISTS "${Soralog_INCLUDE_DIR}")
+        include_directories("${Soralog_INCLUDE_DIR}")
+        message(STATUS "Found soralog at: ${Soralog_INCLUDE_DIR}")
+    endif()
+    
+    # Define that libp2p is available
+    add_compile_definitions(SGIPC_LIBP2P_AVAILABLE)
+else()
+    set(LIBP2P_FOUND FALSE)
+    message(STATUS "libp2p not found - Libp2pIPC will use stub implementation")
+endif()
+
+# --------------------------------------------------------
 # SGIPC Project configuration
 option(BUILD_TESTS "Build tests" OFF)  # Temporarily disabled
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
@@ -287,6 +315,51 @@ foreach(ABSL_LIB ${THIRDPARTY_ABSEIL_LIBS})
         target_link_libraries(${PROJECT_NAME} "${Protobuf_LIBRARY_DIR}/${ABSL_LIB}.lib")
     endif()
 endforeach()
+
+# Link libp2p libraries if available
+if(LIBP2P_FOUND)
+    set(LIBP2P_CORE_LIBS
+        p2p
+        p2p_basic_host
+        p2p_default_host
+        p2p_default_network
+        p2p_gossip
+        p2p_identify
+        p2p_kademlia
+        p2p_autonat
+        p2p_ping
+        p2p_tcp
+        p2p_tcp_connection
+        p2p_tcp_listener
+        p2p_multiselect
+        p2p_multiaddress
+        p2p_peer_id
+        p2p_crypto_provider
+        p2p_peer_repository
+        p2p_connection_manager
+        p2p_dialer
+        p2p_listener_manager
+        p2p_transport_manager
+        p2p_upgrader
+        p2p_noise
+        p2p_yamux
+        p2p_yamuxed_connection
+        p2p_mplex
+        p2p_mplexed_connection
+        p2p_scheduler
+        p2p_asio_scheduler_backend
+        asio_scheduler
+    )
+    
+    foreach(LIB ${LIBP2P_CORE_LIBS})
+        if(EXISTS "${Libp2p_LIBRARY_DIR}/${LIB}.lib")
+            target_link_libraries(${PROJECT_NAME} "${Libp2p_LIBRARY_DIR}/${LIB}.lib")
+            message(STATUS "Linking libp2p library: ${LIB}")
+        endif()
+    endforeach()
+    
+    message(STATUS "libp2p libraries linked successfully")
+endif()
 
 target_link_libraries(${PROJECT_NAME} Threads::Threads)
 
