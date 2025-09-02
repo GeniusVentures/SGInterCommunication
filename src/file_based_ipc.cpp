@@ -15,6 +15,8 @@
 #include <pwd.h>
 #endif
 
+using namespace std::filesystem;
+
 namespace sgipc
 {
 
@@ -293,11 +295,11 @@ namespace sgipc
     {
         try
         {
-            std::filesystem::create_directories( basePath );
-            std::filesystem::create_directories( basePath + "/" + MESSAGES_DIR_NAME );
-            std::filesystem::create_directories( basePath + "/" + HEARTBEAT_DIR_NAME );
-            std::filesystem::create_directories( basePath + "/" + DISCOVERY_DIR_NAME );
-            std::filesystem::create_directories( basePath + "/" + LOCKS_DIR_NAME );
+            create_directories( basePath );
+            create_directories( basePath + "/" + MESSAGES_DIR_NAME );
+            create_directories( basePath + "/" + HEARTBEAT_DIR_NAME );
+            create_directories( basePath + "/" + DISCOVERY_DIR_NAME );
+            create_directories( basePath + "/" + LOCKS_DIR_NAME );
             return true;
         }
         catch ( const std::exception &e )
@@ -400,12 +402,12 @@ namespace sgipc
     {
         try
         {
-            if ( !std::filesystem::exists( directory ) )
+            if ( !exists( directory ) )
             {
                 return;
             }
 
-            for ( const auto &entry : std::filesystem::directory_iterator( directory ) )
+            for ( const auto &entry : directory_iterator( directory ) )
             {
                 if ( entry.is_regular_file() )
                 {
@@ -492,23 +494,23 @@ namespace sgipc
         {
             try
             {
-                if ( !std::filesystem::exists( dir ) )
+                if ( !exists( dir ) )
                 {
                     continue;
                 }
 
-                for ( const auto &entry : std::filesystem::directory_iterator( dir ) )
+                for ( const auto &entry : directory_iterator( dir ) )
                 {
                     if ( entry.is_regular_file() )
                     {
-                        auto file_time = std::filesystem::last_write_time( entry );
+                        auto file_time = last_write_time( entry );
                         auto sctp      = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-                            file_time - std::filesystem::file_time_type::clock::now() +
+                            file_time - file_time_type::clock::now() +
                             std::chrono::system_clock::now() );
 
                         if ( sctp < cutoff_time )
                         {
-                            std::filesystem::remove( entry.path() );
+                            remove( entry.path() );
                         }
                     }
                 }
@@ -552,7 +554,7 @@ namespace sgipc
 
     bool FileBasedIPC::acquireFileLock( const std::string &filepath )
     {
-        std::string lock_file = m_locksDirectory + "/" + std::filesystem::path( filepath ).filename().string() +
+        std::string lock_file = m_locksDirectory + "/" + path( filepath ).filename().string() +
                                 ".lock";
 
         // Simple file-based locking
@@ -562,12 +564,12 @@ namespace sgipc
 
     void FileBasedIPC::releaseFileLock( const std::string &filepath )
     {
-        std::string lock_file = m_locksDirectory + "/" + std::filesystem::path( filepath ).filename().string() +
+        std::string lock_file = m_locksDirectory + "/" + path( filepath ).filename().string() +
                                 ".lock";
 
         try
         {
-            std::filesystem::remove( lock_file );
+            remove( lock_file );
         }
         catch ( const std::exception & )
         {
