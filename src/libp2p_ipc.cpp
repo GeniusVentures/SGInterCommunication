@@ -7,11 +7,9 @@
 #include <chrono>
 #include <thread>
 
-#ifdef SGIPC_LIBP2P_AVAILABLE
 // Minimal libp2p includes for compilation
 #include <libp2p/multi/multiaddress.hpp>
 #include <libp2p/peer/peer_id.hpp>
-#endif
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -48,7 +46,6 @@ namespace sgipc
 
         m_config = config;
         
-#ifdef SGIPC_LIBP2P_AVAILABLE
         // Initialize real libp2p node
         if ( !InitializeLibp2pNode() )
         {
@@ -64,10 +61,6 @@ namespace sgipc
         {
             return IPCStatus::FAILED_TO_INITIALIZE;
         }
-#else
-        // Stub implementation when libp2p is not available
-        std::cout << "Warning: libp2p not available, using stub implementation" << std::endl;
-#endif
         
         m_initialized.store( true );
         return IPCStatus::SUCCESS;
@@ -93,13 +86,8 @@ namespace sgipc
             m_cleanupThread.join();
         }
 
-#ifdef SGIPC_LIBP2P_AVAILABLE
         // Basic cleanup for libp2p resources
         std::cout << "libp2p resources cleaned up (basic implementation)" << std::endl;
-#else
-        // Stub implementation
-        std::cout << "Stub: Shutting down libp2p" << std::endl;
-#endif
 
         m_initialized.store( false );
         return IPCStatus::SUCCESS;
@@ -126,13 +114,8 @@ namespace sgipc
                                       std::chrono::system_clock::now().time_since_epoch() )
                                       .count() );
 
-#ifdef SGIPC_LIBP2P_AVAILABLE
         // Basic implementation - just log the heartbeat for now
         std::cout << "libp2p: Sending heartbeat for port " << port << std::endl;
-#else
-        // Stub implementation
-        std::cout << "Stub: Sending heartbeat for port " << port << std::endl;
-#endif
 
         return IPCStatus::SUCCESS;
     }
@@ -185,13 +168,8 @@ namespace sgipc
         m_heartbeatThread = std::thread( &Libp2pIPC::HeartbeatSenderThread, this );
         m_cleanupThread   = std::thread( &Libp2pIPC::PeerCleanupThread, this );
 
-#ifdef SGIPC_LIBP2P_AVAILABLE
         // libp2p listening is already started in StartDiscoveryService
         std::cout << "libp2p listening started" << std::endl;
-#else
-        // Stub implementation
-        std::cout << "Stub: Started listening for messages" << std::endl;
-#endif
 
         return IPCStatus::SUCCESS;
     }
@@ -209,16 +187,10 @@ namespace sgipc
             return IPCStatus::FAILED_TO_INITIALIZE;
         }
 
-#ifdef SGIPC_LIBP2P_AVAILABLE
         // Basic implementation - for now just log the message
         // Full libp2p message sending will be added once compilation works
         std::cout << "libp2p: Sending message of type " << static_cast<int>( message.type() ) << std::endl;
         return IPCStatus::SUCCESS;
-#else
-        // Stub implementation
-        std::cout << "Stub: Sending message of type " << static_cast<int>( message.type() ) << std::endl;
-        return IPCStatus::SUCCESS;
-#endif
     }
 
     std::vector<proto::DiscoveryAnnouncement> Libp2pIPC::GetDiscoveredInstances() const
@@ -236,13 +208,8 @@ namespace sgipc
 
     bool Libp2pIPC::IsAvailable() const
     {
-#ifdef SGIPC_LIBP2P_AVAILABLE
         // Check if libp2p is available and working
         return true;
-#else
-        // Libp2p is not available, use stub implementation
-        return false;
-#endif
     }
 
     std::string Libp2pIPC::GetBackendName() const
@@ -264,7 +231,6 @@ namespace sgipc
 
     bool Libp2pIPC::InitializeLibp2pNode()
     {
-#ifdef SGIPC_LIBP2P_AVAILABLE
         try
         {
             // For now, use a basic initialization without complex dependencies
@@ -277,36 +243,22 @@ namespace sgipc
             std::cerr << "Exception during libp2p initialization: " << e.what() << std::endl;
             return false;
         }
-#else
-        // Stub implementation
-        return true;
-#endif
     }
 
     bool Libp2pIPC::SetupGossipSubTopic()
     {
-#ifdef SGIPC_LIBP2P_AVAILABLE
         // Basic implementation - for now just return true
         // Full GossipSub integration will be added once basic libp2p compilation works
         std::cout << "GossipSub topic setup (basic implementation)" << std::endl;
         return true;
-#else
-        // Stub implementation
-        return true;
-#endif
     }
 
     bool Libp2pIPC::StartDiscoveryService()
     {
-#ifdef SGIPC_LIBP2P_AVAILABLE
         // Basic implementation - for now just return true
         // Full discovery service will be added once basic libp2p compilation works
         std::cout << "Discovery service started (basic implementation)" << std::endl;
         return true;
-#else
-        // Stub implementation
-        return true;
-#endif
     }
 
     void Libp2pIPC::HandlePubSubMessage( const std::string          &topic,

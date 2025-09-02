@@ -126,11 +126,9 @@ if(EXISTS "${Libp2p_INCLUDE_DIR}/libp2p/libp2p.hpp")
         message(STATUS "Found soralog at: ${Soralog_INCLUDE_DIR}")
     endif()
     
-    # Define that libp2p is available
-    add_compile_definitions(SGIPC_LIBP2P_AVAILABLE)
+    # libp2p is always available, no need for conditional compilation
 else()
-    set(LIBP2P_FOUND FALSE)
-    message(STATUS "libp2p not found - Libp2pIPC will use stub implementation")
+    message(FATAL_ERROR "libp2p not found at expected location: ${Libp2p_INCLUDE_DIR}")
 endif()
 
 # --------------------------------------------------------
