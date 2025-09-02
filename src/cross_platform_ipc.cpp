@@ -108,7 +108,14 @@ namespace sgipc
     // Factory function implementation
     std::shared_ptr<CrossPlatformIPC> CreatePlatformIPC()
     {
-        // Try file-based IPC first for minimal build
+        // Try libp2p IPC first as the primary backend
+        auto libp2p_ipc = std::make_shared<Libp2pIPC>();
+        if ( libp2p_ipc->IsAvailable() )
+        {
+            return libp2p_ipc;
+        }
+
+        // Fallback to file-based IPC
         auto file_ipc = std::make_shared<FileBasedIPC>();
         if ( file_ipc->IsAvailable() )
         {
