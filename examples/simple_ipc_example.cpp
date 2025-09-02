@@ -54,26 +54,6 @@ int main()
     std::atomic<int> message_count{ 0 };
     std::atomic<int> heartbeat_count{ 0 };
 
-#ifdef SGIPC_MINIMAL_BUILD
-    auto message_callback = [&]( const sgipc::simple::SimpleMessage &message, const std::string &sender )
-    {
-        message_count++;
-
-        std::cout << "Received message #" << message_count.load() << std::endl;
-        std::cout << "  Type: " << static_cast<int>(message.type) << std::endl;
-        std::cout << "  Sender: " << message.sender_id << std::endl;
-        std::cout << "  Timestamp: " << message.timestamp << std::endl;
-        std::cout << "  From: " << sender << std::endl;
-
-        if ( message.type == sgipc::simple::MessageType::HEARTBEAT )
-        {
-            heartbeat_count++;
-            std::cout << "  Heartbeat payload: " << message.payload << std::endl;
-        }
-
-        std::cout << std::endl;
-    };
-#else
     auto message_callback = [&]( const sgipc::proto::IPCMessage &message, const std::string &sender )
     {
         message_count++;
@@ -95,7 +75,6 @@ int main()
 
         std::cout << std::endl;
     };
-#endif
 
     // Start listening for messages
     status = ipc->ListenForMessages( message_callback );
@@ -136,17 +115,10 @@ int main()
         if ( !instances.empty() )
         {
             std::cout << "Discovered " << instances.size() << " instance(s):" << std::endl;
-#ifdef SGIPC_MINIMAL_BUILD
-            for ( const auto &instance : instances )
-            {
-                std::cout << "  - " << instance.sender_id << " payload: " << instance.payload << std::endl;
-            }
-#else
             for ( const auto &instance : instances )
             {
                 std::cout << "  - " << instance.instance_id() << " on port " << instance.port() << std::endl;
             }
-#endif
         }
 
         std::cout << "---" << std::endl;

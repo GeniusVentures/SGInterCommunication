@@ -30,13 +30,8 @@ namespace sgipc
         IPCStatus NegotiatePort( uint16_t preferredPort, uint16_t &assignedPort ) override;
         IPCStatus ListenForMessages( MessageCallback callback ) override;
         IPCStatus StopListening() override;
-#ifdef SGIPC_MINIMAL_BUILD
-        IPCStatus SendMessage( const simple::SimpleMessage &message, const std::string &recipientId = "" ) override;
-        std::vector<simple::SimpleMessage> GetDiscoveredInstances() const override;
-#else
         IPCStatus SendMessage( const proto::IPCMessage &message, const std::string &recipientId = "" ) override;
         std::vector<proto::DiscoveryAnnouncement> GetDiscoveredInstances() const override;
-#endif
         bool                                      IsAvailable() const override;
         std::string                               GetBackendName() const override;
         const IPCConfig                          &GetConfig() const override;
@@ -49,11 +44,7 @@ namespace sgipc
             std::string                           address;
             uint16_t                              port;
             std::chrono::steady_clock::time_point last_seen;
-#ifdef SGIPC_MINIMAL_BUILD
-            simple::SimpleMessage                 announcement;
-#else
             proto::DiscoveryAnnouncement          announcement;
-#endif
         };
 
         /**
@@ -113,11 +104,7 @@ namespace sgipc
      * @param peerId Peer identifier
      * @param announcement Discovery announcement
      */
-#ifdef SGIPC_MINIMAL_BUILD
-        void UpdatePeer( const std::string &peerId, const simple::SimpleMessage &announcement );
-#else
         void UpdatePeer( const std::string &peerId, const proto::DiscoveryAnnouncement &announcement );
-#endif
 
         /**
      * @brief Remove stale peers that haven't been seen recently

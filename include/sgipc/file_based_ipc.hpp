@@ -31,13 +31,8 @@ namespace sgipc
         IPCStatus NegotiatePort( uint16_t preferredPort, uint16_t &assignedPort ) override;
         IPCStatus ListenForMessages( MessageCallback callback ) override;
         IPCStatus StopListening() override;
-#ifdef SGIPC_MINIMAL_BUILD
-        IPCStatus SendMessage( const simple::SimpleMessage &message, const std::string &recipientId = "" ) override;
-        std::vector<simple::SimpleMessage> GetDiscoveredInstances() const override;
-#else
         IPCStatus SendMessage( const proto::IPCMessage &message, const std::string &recipientId = "" ) override;
         std::vector<proto::DiscoveryAnnouncement> GetDiscoveredInstances() const override;
-#endif
         bool                                      IsAvailable() const override;
         std::string                               GetBackendName() const override;
         const IPCConfig                          &GetConfig() const override;
@@ -168,11 +163,7 @@ namespace sgipc
 
         // Discovered instances
         mutable std::mutex                        m_instancesMutex;
-#ifdef SGIPC_MINIMAL_BUILD
-        std::vector<simple::SimpleMessage> m_discoveredInstances;
-#else
         std::vector<proto::DiscoveryAnnouncement> m_discoveredInstances;
-#endif
 
         // Configuration constants
         static constexpr auto FILE_SCAN_INTERVAL    = std::chrono::milliseconds( 2000 );

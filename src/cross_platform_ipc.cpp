@@ -73,33 +73,6 @@ namespace sgipc
         return ss.str();
     }
 
-#ifdef SGIPC_MINIMAL_BUILD
-    bool CrossPlatformIPC::SerializeMessage( const simple::SimpleMessage &message, std::vector<uint8_t> &output ) const
-    {
-        try
-        {
-            output = message.serialize();
-            return true;
-        }
-        catch ( const std::exception & )
-        {
-            return false;
-        }
-    }
-
-    bool CrossPlatformIPC::DeserializeMessage( const std::vector<uint8_t> &data, simple::SimpleMessage &message ) const
-    {
-        try
-        {
-            message = simple::SimpleMessage::deserialize( data );
-            return true;
-        }
-        catch ( const std::exception & )
-        {
-            return false;
-        }
-    }
-#else
     bool CrossPlatformIPC::SerializeMessage( const proto::IPCMessage &message, std::vector<uint8_t> &output ) const
     {
         try
@@ -131,7 +104,6 @@ namespace sgipc
             return false;
         }
     }
-#endif
 
     // Factory function implementation
     std::shared_ptr<CrossPlatformIPC> CreatePlatformIPC()

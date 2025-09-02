@@ -92,31 +92,17 @@ TEST_F( SGIPCTest, MessageListening )
     ASSERT_EQ( status, sgipc::IPCStatus::SUCCESS );
 
     bool message_received = false;
-#ifdef SGIPC_MINIMAL_BUILD
-    auto callback = [&message_received]( const sgipc::simple::SimpleMessage &message, const std::string &sender )
-    {
-        message_received = true;
-        EXPECT_FALSE( message.sender_id.empty() ) << "Sender ID should not be empty";
-        EXPECT_GT( message.timestamp, 0 ) << "Timestamp should be greater than 0";
-    };
-#else
     auto callback = [&message_received]( const sgipc::proto::IPCMessage &message, const std::string &sender )
     {
         message_received = true;
-        EXPECT_FALSE( message.senderId().empty() ) << "Sender ID should not be empty";
+        EXPECT_FALSE( message.sender_id().empty() ) << "Sender ID should not be empty";
         EXPECT_GT( message.timestamp(), 0 ) << "Timestamp should be greater than 0";
     };
-#endif
 
     status = ipc_->ListenForMessages( callback );
     EXPECT_EQ( status, sgipc::IPCStatus::SUCCESS ) << "Failed to start listening: " << sgipc::ToString( status );
 
     // Send a test message to ourselves
-#ifdef SGIPC_MINIMAL_BUILD
-    auto test_message = sgipc::simple::createHeartbeat( m_config.instanceId );
-    test_message.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>( 
-        std::chrono::system_clock::now().time_since_epoch() ).count();
-#else
     sgipc::proto::IPCMessage test_message;
     test_message.set_type( sgipc::proto::MessageType::HEARTBEAT );
     test_message.set_sender_id( m_config.instanceId );
@@ -129,7 +115,6 @@ TEST_F( SGIPCTest, MessageListening )
     heartbeat->set_port( 8080 );
     heartbeat->set_timestamp( test_message.timestamp() );
     heartbeat->set_version( "1.0.0" );
-#endif
 
     status = ipc_->SendMessage( test_message );
     EXPECT_EQ( status, sgipc::IPCStatus::SUCCESS ) << "Failed to send test message: " << sgipc::ToString( status );

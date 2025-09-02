@@ -85,11 +85,6 @@ namespace sgipc
             return IPCStatus::FAILED_TO_INITIALIZE;
         }
 
-#ifdef SGIPC_MINIMAL_BUILD
-        auto message = simple::createHeartbeat( m_config.instanceId );
-        message.timestamp = GetCurrentTimestamp();
-        message.payload = std::to_string( port ); // Store port in payload for simple messages
-#else
         proto::IPCMessage message;
         message.set_type( proto::MessageType::HEARTBEAT );
         message.set_sender_id( m_config.instanceId );
@@ -100,7 +95,6 @@ namespace sgipc
         heartbeat->set_port( port );
         heartbeat->set_timestamp( GetCurrentTimestamp() );
         heartbeat->set_version( "1.0.0" );
-#endif
 
         // Write heartbeat to file
         std::vector<uint8_t> serialized;
@@ -161,49 +155,6 @@ namespace sgipc
         return IPCStatus::SUCCESS;
     }
 
-#ifdef SGIPC_MINIMAL_BUILD
-    IPCStatus FileBasedIPC::SendMessage( const simple::SimpleMessage &message, const std::string &recipientId )
-    {
-        if ( !m_initialized.load() )
-        {
-            return IPCStatus::FAILED_TO_INITIALIZE;
-        }
-
-        // Serialize message
-        std::vector<uint8_t> serialized;
-        if ( !SerializeMessage( message, serialized ) )
-        {
-            return IPCStatus::INVALID_MESSAGE;
-        }
-
-        // Determine target directory based on message type
-        std::string target_dir   = m_messagesDirectory;
-        std::string message_type = "message";
-
-        switch ( message.type )
-        {
-            case simple::MessageType::HEARTBEAT:
-                target_dir   = m_heartbeatDirectory;
-                message_type = "heartbeat";
-                break;
-            case simple::MessageType::DISCOVERY_ANNOUNCEMENT:
-                target_dir   = m_discoveryDirectory;
-                message_type = "discovery";
-                break;
-            default:
-                break;
-        }
-
-        std::string filename = target_dir + "/" + GenerateMessageFilename( message_type );
-
-        if ( !writeMessageToFile( filename, serialized ) )
-        {
-            return IPCStatus::FAILED_TO_SEND;
-        }
-
-        return IPCStatus::SUCCESS;
-    }
-#else
     IPCStatus FileBasedIPC::SendMessage( const proto::IPCMessage &message, const std::string &recipientId )
     {
         if ( !m_initialized.load() )
@@ -246,21 +197,12 @@ namespace sgipc
 
         return IPCStatus::SUCCESS;
     }
-#endif
 
-#ifdef SGIPC_MINIMAL_BUILD
-    std::vector<simple::SimpleMessage> FileBasedIPC::GetDiscoveredInstances() const
-    {
-        std::lock_guard<std::mutex> lock( m_instancesMutex );
-        return m_discoveredInstances;
-    }
-#else
     std::vector<proto::DiscoveryAnnouncement> FileBasedIPC::GetDiscoveredInstances() const
     {
         std::lock_guard<std::mutex> lock( m_instancesMutex );
         return m_discoveredInstances;
     }
-#endif
 
     bool FileBasedIPC::IsAvailable() const
     {
@@ -492,49 +434,6 @@ namespace sgipc
             return;
         }
 
-#ifdef SGIPC_MINIMAL_BUILD
-        simple::SimpleMessage message;
-        if ( !DeserializeMessage( message_data, message ) )
-        {
-            return;
-        }
-
-        // Validate message freshness
-        if ( !IsMessageFresh( message.timestamp, m_config.messageTtl ) )
-        {
-            return;
-        }
-
-        // Don't process our own messages
-        if ( message.sender_id == m_config.instanceId )
-        {
-            return;
-        }
-
-        // Update discovered instances if it's a heartbeat
-        if ( message.type == simple::MessageType::HEARTBEAT )
-        {
-            auto announcement = simple::createDiscoveryAnnouncement( message.sender_id, message.payload );
-            announcement.timestamp = message.timestamp;
-
-            std::lock_guard<std::mutex> lock( m_instancesMutex );
-
-            // Update or add to discovered instances
-            auto it = std::find_if( m_discoveredInstances.begin(),
-                                    m_discoveredInstances.end(),
-                                    [&]( const simple::SimpleMessage &existing )
-                                    { return existing.sender_id == announcement.sender_id; } );
-
-            if ( it != m_discoveredInstances.end() )
-            {
-                *it = announcement;
-            }
-            else
-            {
-                m_discoveredInstances.push_back( announcement );
-            }
-        }
-#else
         proto::IPCMessage message;
         if ( !DeserializeMessage( message_data, message ) )
         {
@@ -580,7 +479,6 @@ namespace sgipc
                 m_discoveredInstances.push_back( announcement );
             }
         }
-#endif
 
         // Call user callback
         m_messageCallback( message, "file:" + filepath );
